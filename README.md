@@ -90,6 +90,14 @@ Bernini-R uses two sets of weights:
    `--high_noise_ckpt` / `--low_noise_ckpt`. Both a local directory and a Hugging
    Face repo id are accepted.
 
+Download models using huggingface-cli:
+
+```bash
+pip install -U "huggingface_hub"
+hf download Wan-AI/Wan2.2-T2V-A14B-Diffusers --local-dir Wan2.2-T2V-A14B-Diffusers
+hf download ByteDance/Bernini --local-dir Bernini
+```
+
 ## 🚀 Usage
 
 A run is described by a **case file** — a small JSON under
