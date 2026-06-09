@@ -120,6 +120,7 @@ def build_pipeline(args, device) -> BerniniRendererPipeline:
         device=device,
         load_ckpt_weights=load_ckpt_weights,
         use_unipc=args.use_unipc,
+        shift=args.flow_shift,
         use_src_id_rotary_emb=args.use_src_tgt_id,
     )
 
