@@ -13,11 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 set -euo pipefail
+
+# Single-GPU Bernini-R text-to-video
+export NCCL_NET_PLUGIN=${NCCL_NET_PLUGIN:-none}
+export NCCL_DEBUG=${NCCL_DEBUG:-WARN}
+
+CUDA_DEVICE=${CUDA_DEVICE:-0}
 CASE_PATH=${CASE_PATH:-assets/testcases/t2v/t2v.json}
-NPROC_PER_NODE=${NPROC_PER_NODE:-8}
-ULYSSES=${ULYSSES:-8}
 BERNINI_R_CONFIG=${BERNINI_R_CONFIG:-./pretrained_models/Bernini-R-Diffusers}
 
-torchrun --nproc-per-node "$NPROC_PER_NODE" infer_multi_gpu.py \
-    --config "$BERNINI_R_CONFIG" --ulysses "$ULYSSES" \
-    --case "$CASE_PATH" --guidance_mode t2v_apg
+CUDA_VISIBLE_DEVICES="$CUDA_DEVICE" python infer_single_gpu.py \
+  --config "$BERNINI_R_CONFIG" \
+  --case "$CASE_PATH" \
+  --guidance_mode t2v_apg

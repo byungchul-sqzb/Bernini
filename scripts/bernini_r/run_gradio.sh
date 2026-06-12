@@ -13,10 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 set -euo pipefail
-NPROC_PER_NODE=${NPROC_PER_NODE:-8}
-ULYSSES=${ULYSSES:-8}
-BERNINI_R_CONFIG=${BERNINI_R_CONFIG:-./pretrained_models/Bernini-R-Diffusers}
 
-torchrun --nproc-per-node "$NPROC_PER_NODE" gradio_demo.py --ulysses "$ULYSSES" \
-        --config "$BERNINI_R_CONFIG" \
-        --port 7860 --share
+# Single-GPU Bernini-R Gradio demo
+export NCCL_NET_PLUGIN=${NCCL_NET_PLUGIN:-none}
+export NCCL_DEBUG=${NCCL_DEBUG:-WARN}
+
+CUDA_DEVICE=${CUDA_DEVICE:-0}
+BERNINI_R_CONFIG=${BERNINI_R_CONFIG:-./pretrained_models/Bernini-R-Diffusers}
+PORT=${PORT:-7860}
+SHARE=${SHARE:-1}
+
+share_args=()
+if [[ "$SHARE" == "1" || "$SHARE" == "true" || "$SHARE" == "TRUE" ]]; then
+  share_args+=(--share)
+fi
+
+CUDA_VISIBLE_DEVICES="$CUDA_DEVICE" python gradio_demo.py \
+  --config "$BERNINI_R_CONFIG" \
+  --port "$PORT" \
+  "${share_args[@]}"

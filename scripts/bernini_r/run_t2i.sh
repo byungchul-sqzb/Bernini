@@ -13,8 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 set -euo pipefail
+
+# Single-GPU Bernini-R text-to-image
+export NCCL_NET_PLUGIN=${NCCL_NET_PLUGIN:-none}
+export NCCL_DEBUG=${NCCL_DEBUG:-WARN}
+
+CUDA_DEVICE=${CUDA_DEVICE:-0}
 CASE_PATH=${CASE_PATH:-assets/testcases/t2i/t2i.json}
 BERNINI_R_CONFIG=${BERNINI_R_CONFIG:-./pretrained_models/Bernini-R-Diffusers}
 
-python infer_single_gpu.py --config "$BERNINI_R_CONFIG" \
-    --case "$CASE_PATH" --num_frames 1 --guidance_mode t2v_apg
+CUDA_VISIBLE_DEVICES="$CUDA_DEVICE" python infer_single_gpu.py \
+  --config "$BERNINI_R_CONFIG" \
+  --case "$CASE_PATH" \
+  --num_frames 1 \
+  --guidance_mode t2v_apg
