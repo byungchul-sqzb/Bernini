@@ -109,15 +109,12 @@ class BerniniRendererModel(PreTrainedModel):
         norm_threshold=(50.0, 50.0),
         momentum: float = -0.5,
     ):
-        self.t5_text_encoder = self.t5_text_encoder.to(device)
         prompt_embeds = self.encode_prompt(input_ids, attention_mask)
         uncond_prompt_embeds = (
             self.encode_prompt(uncond_input_ids, uncond_attention_mask)
             if uncond_input_ids is not None
             else None
         )
-        self.t5_text_encoder = self.t5_text_encoder.to("cpu")
-        torch.cuda.empty_cache()
 
         return self.diff_dec.sample(
             prompt_embeds=prompt_embeds,

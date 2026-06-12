@@ -298,10 +298,6 @@ class GEN_Wanx22(nn.Module):
         noisy_vae_latent = rearrange(noise, "b c t (h ph) (w pw) -> b (t h w) (ph pw c)", ph=2, pw=2)
         noisy_vae_latent = noisy_vae_latent.to(device)
 
-        self.transformer.to(device)
-        if self.transformer_2 is not None:
-            self.transformer_2.to("cpu")
-        torch.cuda.empty_cache()
         switched = False
 
         # APG momentum buffers / per-condition norm thresholds.
@@ -323,9 +319,6 @@ class GEN_Wanx22(nn.Module):
             uncond_text = uncond_embeds_t1 if t >= boundary_timestep else uncond_embeds_t2
 
             if t < boundary_timestep and not switched and self.transformer_2 is not None:
-                self.transformer.to("cpu")
-                torch.cuda.empty_cache()
-                self.transformer_2.to(device)
                 switched = True
                 omega_vid *= omega_scale
                 omega_img *= omega_scale
@@ -599,22 +592,6 @@ class GEN_Wanx22(nn.Module):
         noisy_vae_latent = rearrange(noise, 'b c t (h ph) (w pw) -> b (t h w) (ph pw c)', ph=2, pw=2)
         noisy_vae_latent = noisy_vae_latent.to(device) #.to(weight_dtype)
 
-        def _module_device(module):
-            if module is None:
-                return None
-            try:
-                return next(module.parameters()).device
-            except StopIteration:
-                return None
-
-        local_device_moves = _module_device(self.transformer) == torch.device("cpu")
-
-        if local_device_moves:
-            if self.transformer_2 is not None:
-                self.transformer_2.to('cpu')  
-            self.transformer.to(device)
-        torch.cuda.empty_cache()
-    
         switched = False  
         cur_omega_txt = omega_txt
         cur_omega_tgt = omega_tgt
@@ -626,11 +603,6 @@ class GEN_Wanx22(nn.Module):
         for t_idx, t in enumerate(timesteps):
             model_id = "transformer_1" if t >= boundary_timestep else "transformer_2"
             if t < boundary_timestep and not switched and self.transformer_2 is not None:
-                
-                if local_device_moves:
-                    self.transformer.to('cpu')
-                    self.transformer_2.to(device)
-                torch.cuda.empty_cache()
                 switched = True
                 cur_omega_txt = omega_txt * omega_scale
                 cur_omega_tgt = omega_tgt * omega_scale
@@ -747,11 +719,6 @@ class GEN_Wanx22(nn.Module):
                 noisy_vae_latent = self.scheduler.step(noise_pred, t, noisy_vae_latent, return_dict=False)[0]
 
             progress_bar.update(1)
-        if local_device_moves:
-            self.transformer.to('cpu')
-            if self.transformer_2 is not None:
-                self.transformer_2.to('cpu')
-        torch.cuda.empty_cache()
         pred_vae_latent = rearrange(
             noisy_vae_latent,
             'b (t h w) (pt ph pw c) -> b c (t pt) (h ph) (w pw)',

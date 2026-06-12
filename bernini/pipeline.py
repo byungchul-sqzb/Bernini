@@ -237,6 +237,8 @@ class BerniniRendererPipeline:
         if load_ckpt_weights:
             load_weights(model, high_noise_ckpt, low_noise_ckpt)
         model.eval()
+        model.to(device)
+        vae.to(device)
         return cls(model, vae, tokenizer, device)
 
     def _tokenize(self, prompt: str):
@@ -299,7 +301,6 @@ class BerniniRendererPipeline:
         neg_ids, neg_mask = self._tokenize(neg_prompt)
 
         # ---- encode visual conditions on the VAE ----
-        self.vae.to(device)
         t, h, w = num_frames, None, None
 
         multi_video_vae_latents = None
@@ -330,8 +331,6 @@ class BerniniRendererPipeline:
                 for img in images
             ]
 
-        self.vae.to("cpu")
-        torch.cuda.empty_cache()
 
         if h is None:
             h, w = height, width
@@ -362,17 +361,12 @@ class BerniniRendererPipeline:
             norm_threshold=norm_threshold,
             momentum=momentum,
         )
-        self.model.to("cpu")
-        torch.cuda.empty_cache()
 
         if not write_output:
             return None
 
         # ---- decode + save ----
-        self.vae.to(device)
         output = _vae_decode(self.vae, latents)
-        self.vae.to("cpu")
-        torch.cuda.empty_cache()
 
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
         save_output(output, output_path, fps=fps)
@@ -413,6 +407,15 @@ class BerniniPipeline:
         # attached back to diff_dec before sampling.
         setattr(model.diff_dec, "transformer_2", model.diff_dec_low.transformer_2)
         model.eval()
+        model.to(device)
+        if model.mllm is not None:
+            model.mllm.to(device=device, dtype=torch.bfloat16)
+        if getattr(model, "connector", None) is not None:
+            model.connector.to(device=device, dtype=torch.bfloat16)
+        if getattr(model, "vit_decoder", None) is not None:
+            model.vit_decoder.to(device=device, dtype=torch.bfloat16)
+        if getattr(model, "t5_text_encoder", None) is not None:
+            model.t5_text_encoder.to(device=device)
 
         t5_tokenizer = AutoTokenizer.from_pretrained(
             config.t5_tokenizer_path,
@@ -433,6 +436,7 @@ class BerniniPipeline:
         )
         vae.eval()
         vae.requires_grad_(False)
+        vae.to(device)
         return cls(config, model, vae, t5_tokenizer, vit_processor, device)
 
     @torch.no_grad()
@@ -537,8 +541,7 @@ class BerniniPipeline:
                 image_vae_latents.append(latent)
             row_data['image_vae_latents'] = image_vae_latents
             del image_tensors
-            torch.cuda.empty_cache()
-        
+            
         if video is not None or num_frames > 1:
             row_data["video_embeds"] = []
             row_data["video_grid_thw"] = []
@@ -599,8 +602,7 @@ class BerniniPipeline:
                 row_data['video_vae_latents'].append(video_vae_latent)
                 del video_tensor
 
-                torch.cuda.empty_cache()
-        
+                
         return row_data
 
     def transform_inputs(
@@ -936,13 +938,6 @@ class BerniniPipeline:
         t5_prompt = _prompt_clean(system_prompt + raw_prompt)
         logger.info("prompt: %s", t5_prompt)
         # ---- encode visual conditions on the VAE ----
-        self.vae.to(device)
-        self.model.mllm.to(device)
-        self.model.mllm.to(self.weight_dtype)
-        if self.connector is not None:
-            self.connector.to(device=device, dtype=self.weight_dtype)
-        if getattr(self.model, "vit_decoder", None) is not None:
-            self.model.vit_decoder.to(device=device, dtype=self.weight_dtype)
         vae_transform = VAEVideoTransform(
             max_image_size=max_image_size,
             min_image_size=240,
@@ -962,8 +957,6 @@ class BerniniPipeline:
             vit_fps=vit_fps,
             vae_fps=vae_fps,
         )
-        self.vae.to("cpu")
-        torch.cuda.empty_cache()
         input_dict = self.transform_inputs(
             sample,
             num_frames,
@@ -1051,15 +1044,6 @@ class BerniniPipeline:
         cond_embeds_wotxt_wvit = ret['cond_embeds_wotxt_wvit']
         cond_embeds_wotxt_wovit = ret['cond_embeds_wotxt_wovit']
 
-        self.model.mllm.to('cpu')
-        if self.connector is not None:
-            self.connector.to('cpu')
-        if getattr(self.model, "vit_decoder", None) is not None:
-            self.model.vit_decoder.to('cpu')
-        torch.cuda.empty_cache()
-
-        if getattr(self.model, "t5_text_encoder", None) is not None:
-            self.model.t5_text_encoder.to(device)
         t5_input_ids, t5_attention_mask = _get_t5_text_ids(
             t5_prompt, self.t5_tokenizer,
         )
@@ -1079,10 +1063,6 @@ class BerniniPipeline:
         if cond_embeds_wotxt_wvit is not None:
             cond_embeds_wotxt_wvit = torch.cat([neg_t5_embeds, cond_embeds_wotxt_wvit], dim=1)
         cond_embeds_wotxt_wovit = torch.cat([neg_t5_embeds, cond_embeds_wotxt_wovit], dim=1)
-        if getattr(self.model, "t5_text_encoder", None) is not None:
-            self.model.t5_text_encoder.to('cpu')
-        torch.cuda.empty_cache()
-
         def is_image_vae_shape(shape):
             shape = shape.tolist() if isinstance(shape, torch.Tensor) else shape
             return shape[0] == 1 or (len(shape) > 1 and shape[1] == 1)
@@ -1135,7 +1115,6 @@ class BerniniPipeline:
         if width is None or width <= 0:
             width = int(target_vae_shape[2]) * 8
 
-        torch.cuda.empty_cache()
         latents = self.model.diff_dec.sample_bernini_wvitcfg(
             prompt_embeds_wtxt_wvit=cond_embeds_wtxt_wvit.to(self.weight_dtype),
             prompt_embeds_wtxt_wovit=cond_embeds_wtxt_wovit.to(self.weight_dtype) if cond_embeds_wtxt_wovit is not None else None,
@@ -1163,10 +1142,7 @@ class BerniniPipeline:
         if not write_output:
             return None
 
-        self.vae.to(device)
         output = _vae_decode(self.vae, latents)
-        self.vae.to("cpu")
-        torch.cuda.empty_cache()
 
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
         save_output(output, output_path, fps=vae_fps)
