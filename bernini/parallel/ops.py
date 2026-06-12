@@ -77,6 +77,16 @@ def gather_outputs(x, gather_dim, padding_dim=None, unpad_dim_size=None, group=N
     return out
 
 
+def reduce_sequence_parallel_loss(loss):
+    """Single-GPU-compatible loss reducer.
+
+    Training-time sequence parallel reductions are unnecessary for Bernini
+    single-GPU inference, where this function is a no-op. Multi-GPU inference
+    does not use this VLM training loss path.
+    """
+    return loss
+
+
 def padding_tensor_for_seqeunce_parallel(x, dim):
     """Pad `x` along `dim` so its size is divisible by the Ulysses world size."""
     if not get_parallel_state().ulysses_enabled:

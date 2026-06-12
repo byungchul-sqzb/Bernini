@@ -75,26 +75,27 @@ from transformers.utils import (
 )
 from transformers.modeling_flash_attention_utils import fa_peft_integration_check, _upad_input, _pad_input
 
-try:
-    from veomni.utils.constants import IGNORE_INDEX, IMAGE_INPUT_INDEX, VIDEO_INPUT_INDEX
-except ModuleNotFoundError:
-    # Open-VeOmni moved these constants under veomni.data, whose package
-    # __init__ imports optional training deps (torchdata).  Avoid pulling the
-    # training stack into inference and define the stable token ids locally.
-    IGNORE_INDEX = -100
-    IMAGE_INPUT_INDEX = -200
-    VIDEO_INPUT_INDEX = -300
-from veomni.distributed.parallel_state import get_parallel_state
-from veomni.distributed.sequence_parallel import (
+from bernini.parallel import (
     gather_heads_scatter_seq,
+    gather_outputs,
     gather_seq_scatter_heads,
+    get_parallel_state,
     pad_tensor,
     reduce_sequence_parallel_loss,
     unpad_tensor,
-    gather_outputs,
 )
-from veomni.utils.device import IS_CUDA_AVAILABLE
-from veomni.utils.import_utils import is_liger_kernel_available
+
+# Stable Bernini/Open-VeOmni token ids used by the inference templates.
+IGNORE_INDEX = -100
+IMAGE_INPUT_INDEX = -200
+VIDEO_INPUT_INDEX = -300
+IS_CUDA_AVAILABLE = torch.cuda.is_available()
+
+
+def is_liger_kernel_available() -> bool:
+    return importlib.util.find_spec("liger_kernel") is not None
+
+
 from torch.nn.attention.flex_attention import flex_attention
 
 try:

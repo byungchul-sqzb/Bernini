@@ -23,7 +23,6 @@ from einops import rearrange
 
 if TYPE_CHECKING:
     from transformers import ProcessorMixin
-    from veomni.data.chat_template import ChatTemplate
 
 
 def filt_out_source_vae(
@@ -167,7 +166,7 @@ def packing_vae(
 def bernini_process_sample(
     sample: Dict[str, Any],
     processor: "ProcessorMixin",
-    chat_template: "ChatTemplate",
+    chat_template: Any,
     position_id_func: "Callable",
     vae_rope_func: Callable,
     vae_latent_mean: torch.Tensor,

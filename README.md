@@ -73,9 +73,9 @@ Reference environment (developed and tested on this setup):
 | Component | Version      |
 |-----------|--------------|
 | GPU       | NVIDIA H100  |
-| CUDA      | 12.4         |
+| CUDA      | 13.0         |
 | Python    | 3.11.2       |
-| PyTorch   | 2.5.1+cu124  |
+| PyTorch   | 2.11.0+cu130  |
 
 ### Install
 
@@ -86,14 +86,18 @@ pip install -r requirements.txt
 
 Optional extras:
 
-- **Full Bernini and multi-GPU sequence parallelism** need
+- **Multi-GPU Ulysses sequence parallelism only** needs
   [Open-VeOmni](https://github.com/ByteDance-Seed/VeOmni) (Apache-2.0,
-  Python 3.11). Use `--no-deps` so VeOmni does not pull in a different torch
-  build and override the pinned `torch==2.5.1+cu124`:
+  Python 3.11). Single-GPU Bernini and Bernini-R inference do not need VeOmni.
+  If you explicitly enable `--ulysses > 1`, install it with `--no-deps` so it
+  does not pull in a different torch build and override the pinned
+  `torch==2.11.0+cu130`:
   `pip install --no-deps git+https://github.com/ByteDance-Seed/VeOmni.git@v0.1.10`.
-  Single-GPU Bernini-R inference does not need it.
 - **Faster attention** (FlashAttention-2 by default):
-  - FlashAttention-2 — general CUDA GPUs (incl. A100/A800): `pip install flash-attn==2.8.3`.
+  - FlashAttention-2 — general CUDA GPUs (incl. A100/A800): `requirements.txt` installs
+    prebuilt `flash-attn==2.8.3` wheels for Linux x86_64 from
+    [mjun0812/flash-attention-prebuild-wheels](https://github.com/mjun0812/flash-attention-prebuild-wheels),
+    matching `torch==2.11.0+cu130` and Python 3.10–3.14, so local CUDA builds are avoided.
   - FlashAttention-3 — Hopper only (H100/H800/H200, CUDA ≥ 12.3, PyTorch ≥ 2.4).
     `flash_attn_interface` is not on PyPI; build it from the
     [flash-attention](https://github.com/Dao-AILab/flash-attention) repo's

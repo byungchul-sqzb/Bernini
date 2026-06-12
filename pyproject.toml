@@ -7,30 +7,31 @@ name = "bernini"
 version = "0.1.0"
 description = "Bernini: unified video / image generation and editing inference (Wan2.2-based)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.13,<3.14"
 license = { file = "LICENSE" }
 
 dependencies = [
-    "torch>=2.4.0",
+    "torch==2.11.0+cu130",
+    "torchvision==0.26.0+cu130",
     "diffusers==0.35.2",
     "accelerate==0.34.2",
     "transformers==4.57.3",
+    "flash-attn @ https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.9.4/flash_attn-2.8.3%2Bcu130torch2.11-cp313-cp313-linux_x86_64.whl",
     "safetensors",
     "einops",
     "numpy",
     "Pillow",
     "tqdm",
     "ftfy",
+    "ninja",
+    "scipy",
     "decord",
     "imageio",
     "imageio-ffmpeg",
+    "openai>=1.0",
+    "gradio==6.15.0",
 ]
-
-[project.optional-dependencies]
-# Multi-GPU sequence parallel (Ulysses). Open-VeOmni requires Python 3.11.
-parallel = ["veomni"]
-# Prompt engineering via an OpenAI-compatible endpoint.
-pe = ["openai"]
 
 [tool.setuptools.packages.find]
 include = ["bernini*"]
+

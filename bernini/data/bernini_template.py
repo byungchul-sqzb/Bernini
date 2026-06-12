@@ -18,12 +18,11 @@ import os
 import torch
 import numpy as np
 from diffusers.pipelines.wan.pipeline_wan import prompt_clean
-try:
-    from veomni.utils.constants import IGNORE_INDEX
-except ModuleNotFoundError:
-    IGNORE_INDEX = -100
-from veomni.utils import logging
+from transformers.utils import logging
+
 from .utils.attention_utils import build_custom_attention_mask
+
+IGNORE_INDEX = -100
 
 logger = logging.get_logger(__name__)
 
