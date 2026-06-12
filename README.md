@@ -82,16 +82,17 @@ Reference environment (developed and tested on this setup):
 ```bash
 git clone https://github.com/bytedance/Bernini.git bernini && cd bernini
 pip install -r requirements.txt
+# Open-VeOmni is required. Install it with --no-deps so it does not pull in a
+# different torch build and override the pinned torch==2.5.1+cu124:
+pip install --no-deps git+https://github.com/ByteDance-Seed/VeOmni.git@v0.1.10
 ```
+
+[Open-VeOmni](https://github.com/ByteDance-Seed/VeOmni) (Apache-2.0,
+Python 3.11) is a **required** dependency — all inference paths import it,
+including single-GPU.
 
 Optional extras:
 
-- **Full Bernini and multi-GPU sequence parallelism** need
-  [Open-VeOmni](https://github.com/ByteDance-Seed/VeOmni) (Apache-2.0,
-  Python 3.11). Use `--no-deps` so VeOmni does not pull in a different torch
-  build and override the pinned `torch==2.5.1+cu124`:
-  `pip install --no-deps git+https://github.com/ByteDance-Seed/VeOmni.git@v0.1.10`.
-  Single-GPU Bernini-R inference does not need it.
 - **Faster attention** (FlashAttention-2 by default):
   - FlashAttention-2 — general CUDA GPUs (incl. A100/A800): `pip install flash-attn==2.8.3`.
   - FlashAttention-3 — Hopper only (H100/H800/H200, CUDA ≥ 12.3, PyTorch ≥ 2.4).

@@ -73,8 +73,8 @@ A matching config for the Wan2.1-1.3B base is provided at
 ## Run
 
 > Make sure the environment is set up first — see
-> [Installation](../README.md#-installation). Multi-GPU sequence parallelism
-> additionally requires VeOmni; single-GPU inference does not.
+> [Installation](../README.md#-installation), which includes the required
+> VeOmni install.
 
 For single-GPU image tasks, use `infer_single_gpu.py`; for video tasks, use
 `infer_multi_gpu.py` with `torchrun` and `--ulysses` sequence parallelism:

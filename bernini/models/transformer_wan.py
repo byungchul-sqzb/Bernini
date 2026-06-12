@@ -249,11 +249,7 @@ class WanRotaryPosEmbed(nn.Module):
         self.freqs = torch.cat(freqs, dim=1)
 
         self.use_src_id_rotary_emb = use_src_id_rotary_emb
-        if use_src_id_rotary_emb:
-            self.visual_id_freqs = get_1d_rotary_pos_embed(
-                attention_head_dim, max_seq_len, theta,
-                use_real=False, repeat_interleave_real=False, freqs_dtype=torch.float64,
-            )
+        self.theta = theta
 
     def forward(self, hidden_states: torch.Tensor, source_id=None) -> torch.Tensor:
         batch_size, num_channels, num_frames, height, width = hidden_states.shape
@@ -276,9 +272,18 @@ class WanRotaryPosEmbed(nn.Module):
         freqs = torch.cat([freqs_f, freqs_h, freqs_w], dim=-1).reshape(1, 1, ppf * pph * ppw, -1)
 
         if self.use_src_id_rotary_emb:
-            self.visual_id_freqs = self.visual_id_freqs.to(hidden_states.device)
             assert source_id is not None, "source_id is required when use_src_id_rotary_emb=True"
-            freqs_visual_id = self.visual_id_freqs[source_id : source_id + 1]
+            # Compute the per-source rotary phase on the fly so that `source_id`
+            # may be fractional. Rotary phase is continuous in the position, so a
+            # fractional id (e.g. from interpolating many references into the
+            # trained id range) lands inside the trained manifold rather than
+            # extrapolating to unseen integer ids. Integer ids reproduce the old
+            # precomputed-table behaviour exactly.
+            pos = torch.tensor([float(source_id)], dtype=torch.float64, device=hidden_states.device)
+            freqs_visual_id = get_1d_rotary_pos_embed(
+                self.attention_head_dim, pos, self.theta,
+                use_real=False, repeat_interleave_real=False, freqs_dtype=torch.float64,
+            )
             freqs_visual_id = freqs_visual_id.view(1, 1, 1, -1).expand(ppf, pph, ppw, -1)
             freqs_visual_id = freqs_visual_id.reshape(1, 1, ppf * pph * ppw, -1)
             freqs = freqs * freqs_visual_id

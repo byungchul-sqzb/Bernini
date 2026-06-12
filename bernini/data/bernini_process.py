@@ -84,14 +84,31 @@ def packing_vae(
     video_inputs: "Dict[str, Any]",
     noise_sigma: float,
     max_vae_frames: int = None,
+    interpolate_src_id: bool = True,
+    max_trained_src_id: int = 5,
 ):
+    image_vae_masks = list(image_inputs.pop('image_vae_mask', []))
+    video_vae_masks = list(video_inputs.pop('video_vae_mask', []))
+
     image_vae_list = iter(image_inputs.pop('image_vae_latents', []))
     image_vae_shape_list = iter(image_inputs.pop('image_vae_shape', []))
-    image_vae_mask_list = iter(image_inputs.pop('image_vae_mask', []))
+    image_vae_mask_list = iter(image_vae_masks)
 
     video_vae_list = iter(video_inputs.pop('video_vae_latents', []))
     video_vae_shape_list = iter(video_inputs.pop('video_vae_shape', []))
-    video_vae_mask_list = iter(video_inputs.pop('video_vae_mask', []))
+    video_vae_mask_list = iter(video_vae_masks)
+
+    # Source ids for the conditioning segments (the target keeps source_id 0).
+    # Training assigns position-based integer ids; when more conditioning
+    # segments are given than the model saw in training (`max_trained_src_id`),
+    # evenly spread their ids across the trained range [1, max_trained_src_id]
+    # so the rotary phases stay inside the trained manifold instead of
+    # extrapolating to unseen integer ids.
+    num_src = sum(1 for m in image_vae_masks + video_vae_masks if not m)
+    src_sids = None
+    if interpolate_src_id and num_src > max_trained_src_id:
+        src_sids = torch.linspace(1.0, float(max_trained_src_id), num_src).tolist()
+    src_ptr = 0  # cursor into src_sids
 
     input_vae_latents = []
     input_vae_shape = []
@@ -114,12 +131,16 @@ def packing_vae(
             vae_emb = vae_emb[:, :max_vae_frames, :, :]
             vae_shape[0] = max_vae_frames
 
+        if not vae_mask:
+            src_sid = src_sids[src_ptr] if src_sids is not None else float(idx + 1)
+            src_ptr += 1
+
         if vae_rope_func is None:
             vae_rope = None
         elif vae_mask:
             vae_rope = vae_rope_func(vae_emb.unsqueeze(0), source_id=0).squeeze(0)
         else:
-            vae_rope = vae_rope_func(vae_emb.unsqueeze(0), source_id=idx + 1).squeeze(0)
+            vae_rope = vae_rope_func(vae_emb.unsqueeze(0), source_id=src_sid).squeeze(0)
         input_vae_rope.append(vae_rope)
         input_vae_shape.append(vae_shape)
         vae_emb = rearrange_vae_feature(vae_emb)
@@ -178,9 +199,11 @@ def bernini_process_sample(
     max_vae_frames: int = None,  
     noise_sigma=torch.tensor(0),
     noise_timestep=torch.tensor(0), 
-    noise_sigma_low=None, 
+    noise_sigma_low=None,
     noise_timestep_low=None,
     vit_mask_ratio: float = 1.0, # mask all tokens when inference
+    interpolate_src_id: bool = True,
+    max_trained_src_id: int = 5,
     **kwargs,
 ):
     """
@@ -338,23 +361,27 @@ def bernini_process_sample(
         image_inputs_copy = copy.deepcopy(image_inputs)
         video_inputs_copy = copy.deepcopy(video_inputs)
         packed_vae_latents_low = packing_vae(
-            vae_rope_func, 
-            vae_type_list, 
-            image_inputs_copy, 
-            video_inputs_copy, 
-            noise_sigma_low, 
-            max_vae_frames
+            vae_rope_func,
+            vae_type_list,
+            image_inputs_copy,
+            video_inputs_copy,
+            noise_sigma_low,
+            max_vae_frames,
+            interpolate_src_id=interpolate_src_id,
+            max_trained_src_id=max_trained_src_id,
         )
         for k, v in packed_vae_latents_low.items():
             tokenized_example[k + '_low'] = v
 
     packed_vae_latents = packing_vae(
-        vae_rope_func, 
-        vae_type_list, 
-        image_inputs, 
-        video_inputs, 
+        vae_rope_func,
+        vae_type_list,
+        image_inputs,
+        video_inputs,
         noise_sigma,
-        max_vae_frames
+        max_vae_frames,
+        interpolate_src_id=interpolate_src_id,
+        max_trained_src_id=max_trained_src_id,
     )
     tokenized_example.update(packed_vae_latents)
     tokenized_example['timesteps'] = torch.tensor([noise_timestep])

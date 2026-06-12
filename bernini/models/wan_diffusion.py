@@ -342,9 +342,6 @@ class GEN_Wanx22(nn.Module):
             v_latents, v_rotary, v_masks, v_len = [], [], [], 0
             i_latents, i_rotary, i_masks, i_len = [], [], [], 0
             vi_latents, vi_rotary, vi_masks, vi_len = [], [], [], 0
-            sid = 1       # global source_id for the VI combo
-            sid_img = 1   # source_id for the image-only combo
-
             target_video_latents = []
             if multi_video_vae_latents is not None:
                 if isinstance(multi_video_vae_latents, torch.Tensor):
@@ -352,11 +349,42 @@ class GEN_Wanx22(nn.Module):
                 else:
                     target_video_latents = multi_video_vae_latents
 
+            # ----------------------------------------------------------------
+            # Assign a source_id to every conditioning source. Ids start at 1
+            # (the noisy target keeps 0). When a combo has more sources than the
+            # model saw in training (`max_trained_src_id`), evenly spread the ids
+            # across the trained range [1, max_trained_src_id] so the rotary
+            # phases stay inside the trained manifold instead of extrapolating.
+            # ----------------------------------------------------------------
+            num_videos = len(target_video_latents)
+            num_images = 0
+            if image_vae_latents is not None:
+                num_images += image_vae_latents.shape[2]
+            if multi_image_vae_latents is not None:
+                num_images += len(multi_image_vae_latents)
+
+            interp = getattr(self.config, "interpolate_src_id", True)
+            max_trained = getattr(self.config, "max_trained_src_id", 5)
+
+            def _make_sids(n):
+                if n <= 0:
+                    return []
+                if interp and n > max_trained:
+                    return torch.linspace(1.0, float(max_trained), n).tolist()
+                return [float(i) for i in range(1, n + 1)]
+
+            # VI combo holds videos then images on a shared id axis; the
+            # image-only combo holds just the images on its own axis.
+            vi_sids = _make_sids(num_videos + num_images)
+            i_sids = _make_sids(num_images)
+            vi_ptr = 0    # cursor into vi_sids
+            i_ptr = 0     # cursor into i_sids
+
             for idx, video_latent in enumerate(target_video_latents):
                 cur_latent, rotary_emb = cur_transformer.patch_vae_latent(
-                    video_latent.to(dtype=cur_transformer.dtype), source_id=sid
+                    video_latent.to(dtype=cur_transformer.dtype), source_id=vi_sids[vi_ptr]
                 )
-                sid += 1
+                vi_ptr += 1
                 mask = torch.zeros(cur_latent.shape[1], device=device, dtype=torch.bool)
                 if idx == 0:  # only the first video joins the V combo
                     v_latents.append(cur_latent)
@@ -369,20 +397,20 @@ class GEN_Wanx22(nn.Module):
                 vi_len += cur_latent.shape[1]
 
             def _add_image(img_vae):
-                nonlocal sid, sid_img, vi_len, i_len
+                nonlocal vi_ptr, i_ptr, vi_len, i_len
                 cur_latent, rotary_emb = cur_transformer.patch_vae_latent(
-                    img_vae.to(dtype=cur_transformer.dtype), source_id=sid
+                    img_vae.to(dtype=cur_transformer.dtype), source_id=vi_sids[vi_ptr]
                 )
-                sid += 1
+                vi_ptr += 1
                 vi_latents.append(cur_latent)
                 vi_rotary.append(rotary_emb)
                 vi_masks.append(torch.zeros(cur_latent.shape[1], device=device, dtype=torch.bool))
                 vi_len += cur_latent.shape[1]
 
                 cur_latent_i, rotary_emb_i = cur_transformer.patch_vae_latent(
-                    img_vae.to(dtype=cur_transformer.dtype), source_id=sid_img
+                    img_vae.to(dtype=cur_transformer.dtype), source_id=i_sids[i_ptr]
                 )
-                sid_img += 1
+                i_ptr += 1
                 i_latents.append(cur_latent_i)
                 i_rotary.append(rotary_emb_i)
                 i_masks.append(torch.zeros(cur_latent_i.shape[1], device=device, dtype=torch.bool))

@@ -149,6 +149,8 @@ class BerniniConfig(PretrainedConfig):
         ema_decay=None,
         partial_pretrain_model=None,
         use_src_id_rotary_emb=False,
+        interpolate_src_id=True,
+        max_trained_src_id=5,
         max_sequence_length=512,
         # t5 embedding
         t5_text_encoder_path=None,
@@ -209,6 +211,12 @@ class BerniniConfig(PretrainedConfig):
         self.shift = shift
         self.cotrain = cotrain
         self.use_src_id_rotary_emb = use_src_id_rotary_emb
+        # When the number of conditioning segments exceeds `max_trained_src_id`
+        # (the largest source_id seen in training), evenly map their ids into
+        # the trained range [1, max_trained_src_id] instead of extrapolating to
+        # unseen integer ids. The target segment keeps source_id 0.
+        self.interpolate_src_id = interpolate_src_id
+        self.max_trained_src_id = max_trained_src_id
         self.max_sequence_length = max_sequence_length
         self.wovae_task_list = wovae_task_list
 

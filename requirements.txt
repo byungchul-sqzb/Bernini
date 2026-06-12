@@ -32,14 +32,15 @@ openai>=1.0
 # Powers gradio_demo.py (the in-browser UI on top of the Bernini pipeline).
 gradio==6.15.0
 
-# ---- Optional ----
-# Multi-GPU sequence parallel (Ulysses) needs Open-VeOmni (Apache-2.0, Python 3.11).
-# Use --no-deps so VeOmni does not pull in a different torch build and override
-
-# the pinned torch==2.5.1+cu124 above:
+# ---- Open-VeOmni (REQUIRED, installed separately) ----
+# Open-VeOmni (Apache-2.0, Python 3.11) is a required dependency: all inference
+# paths import it, including single-GPU. It is not listed as a plain requirement
+# here because it must be installed with --no-deps, so it does not pull in a
+# different torch build and override the pinned torch==2.5.1+cu124 above.
+# After installing this file, run:
 #   pip install --no-deps git+https://github.com/ByteDance-Seed/VeOmni.git@v0.1.10
-# Single-GPU inference does NOT need it.
-#
+
+# ---- Optional ----
 # Faster attention (auto-detected if installed; otherwise PyTorch SDPA is used).
 #   - FlashAttention-2 -- general CUDA GPUs (incl. A100/A800):
 #       pip install flash-attn==2.8.3

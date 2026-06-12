@@ -7,7 +7,8 @@ name = "bernini"
 version = "0.1.0"
 description = "Bernini: unified video / image generation and editing inference (Wan2.2-based)"
 readme = "README.md"
-requires-python = ">=3.10"
+# Open-VeOmni (a required dependency) needs Python 3.11.
+requires-python = ">=3.11"
 license = { file = "LICENSE" }
 
 dependencies = [
@@ -24,11 +25,13 @@ dependencies = [
     "decord",
     "imageio",
     "imageio-ffmpeg",
+    # Required by all inference paths (incl. single-GPU). When the torch build
+    # matters (e.g. a pinned CUDA wheel), install it manually with --no-deps
+    # instead -- see requirements.txt.
+    "veomni",
 ]
 
 [project.optional-dependencies]
-# Multi-GPU sequence parallel (Ulysses). Open-VeOmni requires Python 3.11.
-parallel = ["veomni"]
 # Prompt engineering via an OpenAI-compatible endpoint.
 pe = ["openai"]
 

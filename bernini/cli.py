@@ -54,6 +54,13 @@ def add_common_args(parser):
     g.add_argument("--use_src_tgt_id", action=argparse.BooleanOptionalAction, default=True,
                    help="use source-id rotary embeddings, i.e. use_src_id_rotary_emb "
                         "(default: on; pass --no-use_src_tgt_id to disable)")
+    g.add_argument("--interpolate_src_id", action=argparse.BooleanOptionalAction, default=True,
+                   help="when reference sources exceed --max_trained_src_id, evenly map their "
+                        "source ids into the trained range instead of extrapolating "
+                        "(default: on; pass --no-interpolate_src_id to disable)")
+    g.add_argument("--max_trained_src_id", type=int, default=5,
+                   help="largest source_id seen during training; sources beyond this are "
+                        "interpolated into [1, max_trained_src_id] (default: 5)")
 
     g = parser.add_argument_group("input")
     g.add_argument("--prompt", default=None, help="text prompt / editing instruction")
@@ -141,6 +148,8 @@ def build_pipeline(args, device):
             device=device,
             use_unipc=args.use_unipc,
             use_src_id_rotary_emb=args.use_src_tgt_id,
+            interpolate_src_id=args.interpolate_src_id,
+            max_trained_src_id=args.max_trained_src_id,
         )
 
     if (args.high_noise_ckpt is None) != (args.low_noise_ckpt is None):
@@ -164,6 +173,8 @@ def build_pipeline(args, device):
             use_unipc=args.use_unipc,
             shift=args.flow_shift,
             use_src_id_rotary_emb=args.use_src_tgt_id,
+            interpolate_src_id=args.interpolate_src_id,
+            max_trained_src_id=args.max_trained_src_id,
         )
 
 

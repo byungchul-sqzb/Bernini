@@ -692,6 +692,11 @@ def parse_args():
     parser.add_argument("--low_noise_ckpt", default=None)
     parser.add_argument("--use_unipc", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--use_src_tgt_id", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--interpolate_src_id", action=argparse.BooleanOptionalAction, default=True,
+                        help="map reference source ids beyond --max_trained_src_id into the "
+                             "trained range instead of extrapolating (default: on)")
+    parser.add_argument("--max_trained_src_id", type=int, default=5,
+                        help="largest source_id seen during training (default: 5)")
     parser.add_argument("--flow_shift", type=float, default=5.0)
     parser.add_argument("--ulysses", type=int, default=1)
 

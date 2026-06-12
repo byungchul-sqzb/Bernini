@@ -13,11 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 set -euo pipefail
-CASE_PATH=${CASE_PATH:-assets/testcases/r2v/r2v.json}
 NPROC_PER_NODE=${NPROC_PER_NODE:-8}
 ULYSSES=${ULYSSES:-8}
 BERNINI_R_CONFIG=${BERNINI_R_CONFIG:-./pretrained_models/Bernini-R-Diffusers}
 
 torchrun --nproc-per-node "$NPROC_PER_NODE" infer_multi_gpu.py \
     --config "$BERNINI_R_CONFIG" --ulysses "$ULYSSES" \
-    --case "$CASE_PATH" --guidance_mode r2v_apg
+    --case assets/testcases/r2v/r2v.json --guidance_mode r2v_apg
+
+torchrun --nproc-per-node "$NPROC_PER_NODE" infer_multi_gpu.py \
+    --config "$BERNINI_R_CONFIG" --ulysses "$ULYSSES" \
+    --case assets/testcases/r2v/r2v_case2.json --guidance_mode r2v_apg

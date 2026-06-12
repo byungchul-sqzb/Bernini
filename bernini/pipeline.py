@@ -647,6 +647,10 @@ class BerniniPipeline:
         vae_latent_mean = vae_latent_mean.view(vae_config['z_dim'], 1, 1, 1)
         vae_latent_std = vae_latent_std.view(vae_config['z_dim'], 1, 1, 1)
 
+        src_id_kwargs = dict(
+            interpolate_src_id=getattr(self.config, "interpolate_src_id", True),
+            max_trained_src_id=getattr(self.config, "max_trained_src_id", 5),
+        )
         transform = partial(
             bernini_process_sample,
             processor=processor,
@@ -659,7 +663,8 @@ class BerniniPipeline:
             img_dropout_rate=0.0,
             video_dropout_rate=0.0,
             max_vae_frames=max_vae_frames,
-            source_name=task_name
+            source_name=task_name,
+            **src_id_kwargs,
         )
         uncond_transform = partial(
             bernini_process_sample,
@@ -673,7 +678,8 @@ class BerniniPipeline:
             img_dropout_rate=1.0,
             video_dropout_rate=1.0,
             max_vae_frames=max_vae_frames,
-            source_name=task_name
+            source_name=task_name,
+            **src_id_kwargs,
         )
         imgcond_transform = partial(
             bernini_process_sample,
@@ -687,7 +693,8 @@ class BerniniPipeline:
             img_dropout_rate=1.0,
             video_dropout_rate=1.0,
             max_vae_frames=max_vae_frames,
-            source_name=task_name
+            source_name=task_name,
+            **src_id_kwargs,
         )
         def process_sample(sample, sample_idx):
             neg_prompt = sample.get('neg_prompt', t5_neg_prompt)

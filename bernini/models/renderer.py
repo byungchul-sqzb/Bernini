@@ -40,6 +40,8 @@ class BerniniRendererConfig(PretrainedConfig):
         shift: float = 3.0,
         use_unipc: bool = True,
         use_src_id_rotary_emb: bool = True,
+        interpolate_src_id: bool = True,
+        max_trained_src_id: int = 5,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -51,6 +53,12 @@ class BerniniRendererConfig(PretrainedConfig):
         self.shift = shift
         self.use_unipc = use_unipc
         self.use_src_id_rotary_emb = use_src_id_rotary_emb
+        # When the number of reference sources exceeds `max_trained_src_id`
+        # (the largest source_id seen in training), evenly map their ids into
+        # the trained range [1, max_trained_src_id] instead of extrapolating to
+        # unseen integer ids. The noisy target keeps source_id 0.
+        self.interpolate_src_id = interpolate_src_id
+        self.max_trained_src_id = max_trained_src_id
         self.architectures = ["BerniniRendererModel"]
 
 
