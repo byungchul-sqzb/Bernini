@@ -26,6 +26,8 @@ Full Bernini example:
 """
 
 import argparse
+import json
+import time
 
 import torch
 
@@ -41,9 +43,36 @@ from bernini.cli import (
 from bernini.pipeline import BerniniPipeline
 
 
+def _append_metrics(path: str, record: dict) -> None:
+    if not path:
+        return
+    with open(path, "a") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def _run_measured(fn):
+    """Run one inference call after model loading and return model-run metrics."""
+    torch.cuda.synchronize()
+    torch.cuda.reset_peak_memory_stats()
+    start = time.perf_counter()
+    result = fn()
+    torch.cuda.synchronize()
+    elapsed = time.perf_counter() - start
+    peak_vram_mib = torch.cuda.max_memory_allocated() / (1024 ** 2)
+    return result, elapsed, peak_vram_mib
+
+
 def main():
     parser = argparse.ArgumentParser(description="Bernini Renderer single-GPU inference")
     add_common_args(parser)
+    parser.add_argument(
+        "--metrics_jsonl",
+        default=None,
+        help=(
+            "append per-task model-run metrics as JSONL. Timing starts after model "
+            "loading/initialization and wraps only the pipeline execution call."
+        ),
+    )
     args = parser.parse_args()
     apply_case_file(args)
     setup_logging()
@@ -70,28 +99,41 @@ def main():
                 images=task.get("images"),
             )
         task_name = task.get("task_type", args.task_type)
-        # BerniniPipeline takes task_name as first arg, BerniniRendererPipeline takes prompt
+        output_path = task.get("output", args.output)
+
+        # BerniniPipeline takes task_name as first arg, BerniniRendererPipeline takes prompt.
         if isinstance(pipeline, BerniniPipeline):
-            pipeline(
+            call = lambda: pipeline(
                 task_name,
                 prompt,
                 video=task.get("video"),
                 image=task.get("image"),
                 images=task.get("images"),
-                output_path=task.get("output", args.output),
+                output_path=output_path,
                 system_prompt=resolve_system_prompt(task, args),
                 **common,
             )
         else:
-            pipeline(
+            call = lambda: pipeline(
                 prompt,
                 video=task.get("video"),
                 image=task.get("image"),
                 images=task.get("images"),
-                output_path=task.get("output", args.output),
+                output_path=output_path,
                 system_prompt=resolve_system_prompt(task, args),
                 **common,
             )
+
+        _, model_e2e_seconds, peak_vram_mib = _run_measured(call)
+        _append_metrics(
+            args.metrics_jsonl,
+            {
+                "task": task_name,
+                "output": output_path,
+                "model_e2e_seconds": model_e2e_seconds,
+                "peak_vram_mib": peak_vram_mib,
+            },
+        )
 
 
 if __name__ == "__main__":
